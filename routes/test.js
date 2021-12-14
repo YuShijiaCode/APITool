@@ -1,13 +1,13 @@
 var express = require('express');
 var router = express.Router();
 
+
 /* GET users listing. */
 router.get('/index.html', function(req,res) {
-  res.sendFile("C:\\Users\\yushijia\\IdeaProjects\\express\\public\\javascripts\\index.html");
+  res.sendFile("C:\\Users\\yushijia\\IdeaProjects\\APITool\\public\\javascripts\\index.html");
 });
 
 router.get('/returnRes', function(req, res, next) {
-  // res.send('testtest');
   let response  = {
     'firstname': req.query.firstname,
     'lastname': req.query.lastname
