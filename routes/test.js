@@ -6,7 +6,7 @@ var router = express.Router();
 /* GET users listing. */
 router.get('/index.html', function(req,res) {
   //res.sendFile("C:\\Users\\yushijia\\IdeaProjects\\APITool\\public\\javascripts\\index.html");
-  console.log('test');
+  console.log('./public/javascripts/index.html');
 });
 
 router.get('/returnRes', function(req, res, next) {
