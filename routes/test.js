@@ -1,11 +1,12 @@
-var express = require('express');
+let express = require('express');
+let path = require('path');
 const httpRequest = require('../framework/httpRequest');
-var router = express.Router();
+let router = express.Router();
 
 
 /* GET users listing. */
 router.get('/index.html', function(req,res) {
-  //res.sendFile("C:\\Users\\yushijia\\IdeaProjects\\APITool\\public\\javascripts\\index.html");
+  //res.sendFile("res.sendFile(path.join(__dirname + '/../public/javascripts/index.html'));");
   console.log('./public/javascripts/index.html');
 });
 
