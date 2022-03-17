@@ -1,8 +1,43 @@
-body {
-  padding: 50px;
-  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+body
+{
+  padding: 600px;
+  /*background-color:#F0ECD6;*/
+  /*background-position:top;*/
+  /*background-repeat:repeat-x;*/
+  background:linear-gradient(#243949,#517fa4);
+  background:linear-gradient(#fff1eb,#ace0f9);
 }
 
 a {
   color: #00B7FF;
+}
+
+#searchBtn{
+  left: 900px;
+  top: 367px;
+  width: 108px;
+  height: 56px;
+  background: rgba(0, 186, 173.00000000000003, 1);
+  border: 1px solid rgba(166, 166, 166, 1);
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, .5);
+  border-radius: 10px;
+  font-weight: 500 ;
+  font-size: 150% ;
+  /*filter: blur(4px);*/
+}
+#textBox{
+  left: 391px;
+  top: 358px;
+  width: 485px;
+  height: 61px;
+  background: rgba(0, 186, 173, 0.06);
+  border: 1px solid rgba(166, 166, 166, 1);
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, .5);
+  border-radius: 30px;
+  font-weight: 500 ;
+  font-size: 150% ;
+}
+
+.center{
+  text-align:center;
 }
