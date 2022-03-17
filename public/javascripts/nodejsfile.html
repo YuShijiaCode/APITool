@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>fs 文件系统 | Node.js API 文档</title>
+    <link rel="icon" sizes="32x32" type="image/png" href="//img.nodejs.cn/favicon.png">
+    <link href="//static0.nodejs.cn/_static/css/api.css?t=20220317002537" rel="stylesheet">
+</head>
+
+<body class="alt apidoc api_page_fs" id="page_api">
+<section>
+    <h3>注意事项<span><a class="mark" href="#notes" id="notes">#</a></span><a aria-hidden="true"
+                                                                          class="legacy" id="fs_notes"></a></h3>
+    <h4>回调与基于 promise
+        的操作的顺序<span><a class="mark" href="#ordering-of-callback-and-promise-based-operations" id="ordering-of-callback-and-promise-based-operations">#</a></span><a
+                aria-hidden="true" class="legacy"
+                id="fs_ordering_of_callback_and_promise_based_operations"></a></h4>
+    <p class="tip_wrap" data-show_trans="1"
+       data-item_id="#ordering-of-callback-and-promise-based-operations">
+        <a href="fs/ordering_of_callback_and_promise_based_operations.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>因为它们是由底层线程池异步地执行，所以当使用回调或基于 promise 的方法时无法保证顺序。</p>
+    <p>例如，以下内容容易出错，因为 <code>fs.stat()</code> 操作可能会在 <code>fs.rename()</code> 操作之前完成：</p>
+    <pre><code class="language-js">fs.<span class="hljs-title function_">rename</span>(<span class="hljs-string">'/tmp/hello'</span>, <span class="hljs-string">'/tmp/world'</span>, <span class="hljs-function">(<span class="hljs-params">err</span>) =&gt;</span> {
+  <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">'renamed complete'</span>);
+});
+fs.<span class="hljs-title function_">stat</span>(<span class="hljs-string">'/tmp/world'</span>, <span class="hljs-function">(<span class="hljs-params">err, stats</span>) =&gt;</span> {
+  <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`stats: <span class="hljs-subst">${<span class="hljs-built_in">JSON</span>.stringify(stats)}</span>`</span>);
+});</code></pre>
+    <p>通过在调用另一个之前等待前一个的结果来正确地排序操作，这是很重要的：</p>
+
+    <pre><input class="js-flavor-selector" type="checkbox" checked="" aria-label="Show modern ES modules syntax"><code class="language-js mjs"><span class="hljs-keyword">import</span> { rename, stat } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs/promises'</span>;
+
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">from</span> = <span class="hljs-string">'/tmp/hello'</span>;
+<span class="hljs-keyword">const</span> to = <span class="hljs-string">'/tmp/world'</span>;
+
+<span class="hljs-keyword">try</span> {
+  <span class="hljs-keyword">await</span> <span class="hljs-title function_">rename</span>(<span class="hljs-keyword">from</span>, to);
+  <span class="hljs-keyword">const</span> stats = <span class="hljs-keyword">await</span> <span class="hljs-title function_">stat</span>(to);
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`stats: <span class="hljs-subst">${<span class="hljs-built_in">JSON</span>.stringify(stats)}</span>`</span>);
+} <span class="hljs-keyword">catch</span> (error) {
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">error</span>(<span class="hljs-string">'there was an error:'</span>, error.<span class="hljs-property">message</span>);
+}</code><code class="language-js cjs"><span class="hljs-keyword">const</span> { rename, stat } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'fs/promises'</span>);
+
+(<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span>(<span class="hljs-params"><span class="hljs-keyword">from</span>, to</span>) {
+  <span class="hljs-keyword">try</span> {
+    <span class="hljs-keyword">await</span> <span class="hljs-title function_">rename</span>(<span class="hljs-keyword">from</span>, to);
+    <span class="hljs-keyword">const</span> stats = <span class="hljs-keyword">await</span> <span class="hljs-title function_">stat</span>(to);
+    <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`stats: <span class="hljs-subst">${<span class="hljs-built_in">JSON</span>.stringify(stats)}</span>`</span>);
+  } <span class="hljs-keyword">catch</span> (error) {
+    <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">error</span>(<span class="hljs-string">'there was an error:'</span>, error.<span class="hljs-property">message</span>);
+  }
+})(<span class="hljs-string">'/tmp/hello'</span>, <span class="hljs-string">'/tmp/world'</span>);</code></pre>
+    <p>或者，当使用回调 API 时，将 <code>fs.stat()</code> 调用移动到 <code>fs.rename()</code> 操作的回调中。</p>
+
+    <pre><input class="js-flavor-selector" type="checkbox" checked="" aria-label="Show modern ES modules syntax"><code class="language-js mjs"><span class="hljs-keyword">import</span> { rename, stat } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+
+<span class="hljs-title function_">rename</span>(<span class="hljs-string">'/tmp/hello'</span>, <span class="hljs-string">'/tmp/world'</span>, <span class="hljs-function">(<span class="hljs-params">err</span>) =&gt;</span> {
+  <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+  <span class="hljs-title function_">stat</span>(<span class="hljs-string">'/tmp/world'</span>, <span class="hljs-function">(<span class="hljs-params">err, stats</span>) =&gt;</span> {
+    <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+    <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`stats: <span class="hljs-subst">${<span class="hljs-built_in">JSON</span>.stringify(stats)}</span>`</span>);
+  });
+});</code><code class="language-js cjs"><span class="hljs-keyword">const</span> { rename, stat } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'fs/promises'</span>);
+
+<span class="hljs-title function_">rename</span>(<span class="hljs-string">'/tmp/hello'</span>, <span class="hljs-string">'/tmp/world'</span>, <span class="hljs-function">(<span class="hljs-params">err</span>) =&gt;</span> {
+  <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+  <span class="hljs-title function_">stat</span>(<span class="hljs-string">'/tmp/world'</span>, <span class="hljs-function">(<span class="hljs-params">err, stats</span>) =&gt;</span> {
+    <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+    <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`stats: <span class="hljs-subst">${<span class="hljs-built_in">JSON</span>.stringify(stats)}</span>`</span>);
+  });
+});</code></pre>
+    <h4>文件路径<span><a class="mark" href="#file-paths" id="file-paths">#</a></span><a aria-hidden="true"
+                                                                                    class="legacy" id="fs_file_paths"></a></h4>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#file-paths">
+        <a href="fs/file_paths.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>大多数 <code>fs</code> 操作接受可以以字符串、<a href="/api/buffer.html#class-buffer" rel="nofollow"
+                                         class="type">&lt;Buffer&gt;</a> 或使用 <code>file:</code> 协议的 <a
+            href="/api/url.html#the-whatwg-url-api" rel="nofollow" class="type">&lt;URL&gt;</a>
+        对象的形式指定的文件路径。</p>
+    <h5>字符串路径<span><a class="mark" href="#string-paths" id="string-paths">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_string_paths"></a></h5>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#string-paths">
+        <a href="fs/string_paths.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>字符串路径被解释为标识绝对或相对文件名的 UTF-8 字符序列。
+        相对路径将相对于通过调用 <code>process.cwd()</code> 确定的当前工作目录进行解析。</p>
+    <p>在 POSIX 上使用绝对路径的示例：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { open } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs/promises'</span>;
+
+<span class="hljs-keyword">let</span> fd;
+<span class="hljs-keyword">try</span> {
+  fd = <span class="hljs-keyword">await</span> <span class="hljs-title function_">open</span>(<span class="hljs-string">'/open/some/file.txt'</span>, <span class="hljs-string">'r'</span>);
+  <span class="hljs-comment">// 对文件做一些事情</span>
+} <span class="hljs-keyword">finally</span> {
+  <span class="hljs-keyword">await</span> fd.<span class="hljs-title function_">close</span>();
+}</code></pre>
+    <p>在 POSIX 上使用相对路径的示例（相对于 <code>process.cwd()</code>）:</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { open } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs/promises'</span>;
+
+<span class="hljs-keyword">let</span> fd;
+<span class="hljs-keyword">try</span> {
+  fd = <span class="hljs-keyword">await</span> <span class="hljs-title function_">open</span>(<span class="hljs-string">'file.txt'</span>, <span class="hljs-string">'r'</span>);
+  <span class="hljs-comment">// 对文件做一些事情</span>
+} <span class="hljs-keyword">finally</span> {
+  <span class="hljs-keyword">await</span> fd.<span class="hljs-title function_">close</span>();
+}</code></pre>
+    <h5>文件 URL 路径<span><a class="mark" href="#file-url-paths" id="file-url-paths">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_file_url_paths"></a></h5>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#file-url-paths">
+        <a href="fs/file_url_paths.html" class="tip_trans">中英对照</a>
+    </p>
+    <div class="api_metadata">
+        <span>新增于: v7.6.0</span>
+    </div>
+    <p>对于大多数 <code>fs</code> 模块函数，<code>path</code> 或 <code>filename</code> 参数可以作为使用 <code>file:</code>
+        协议的 <a href="/api/url.html#the-whatwg-url-api" rel="nofollow" class="type">&lt;URL&gt;</a> 对象传入。
+    </p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { readFileSync } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///tmp/hello'</span>));</code></pre>
+    <p><code>file:</code> URL 始终是绝对路径。</p>
+    <h6>平台特定的注意事项<span><a class="mark" href="#platform-specific-considerations" id="platform-specific-considerations">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_platform_specific_considerations"></a></h6>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#platform-specific-considerations">
+        <a href="fs/platform_specific_considerations.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>在 Windows 上，带有主机名的 <code>file:</code> <a href="/api/url.html#the-whatwg-url-api" rel="nofollow"
+                                                class="type">&lt;URL&gt;</a> 转换为 UNC 路径，而带有驱动器号的 <code>file:</code> <a
+            href="/api/url.html#the-whatwg-url-api" rel="nofollow" class="type">&lt;URL&gt;</a>
+        则转换为本地绝对路径。
+        没有主机名和驱动器号的 <code>file:</code> <a href="/api/url.html#the-whatwg-url-api" rel="nofollow"
+                                          class="type">&lt;URL&gt;</a> 将导致错误：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { readFileSync } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+<span class="hljs-comment">// 在 Windows 上：</span>
+
+<span class="hljs-comment">// - 带有主机名的 WHATWG 文件 URL 转换为 UNC 路径</span>
+<span class="hljs-comment">// file://hostname/p/a/t/h/file =&gt; \\hostname\p\a\t\h\file</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file://hostname/p/a/t/h/file'</span>));
+
+<span class="hljs-comment">// - 带有驱动器号的 WHATWG 文件 URL 转换为绝对路径</span>
+<span class="hljs-comment">// file:///C:/tmp/hello =&gt; C:\tmp\hello</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///C:/tmp/hello'</span>));
+
+<span class="hljs-comment">// - 没有主机名的 WHATWG 文件 URL 必须有驱动器号</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///notdriveletter/p/a/t/h/file'</span>));
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///c/p/a/t/h/file'</span>));
+<span class="hljs-comment">// TypeError [ERR_INVALID_FILE_URL_PATH]: File URL path must be absolute</span></code></pre>
+    <p>带有驱动器号的 <code>file:</code> <a href="/api/url.html#the-whatwg-url-api" rel="nofollow"
+                                     class="type">&lt;URL&gt;</a> 必须在驱动器号之后使用 <code>:</code> 作为分隔符。
+        使用其他分隔符会导致错误。</p>
+    <p>在所有其他平台上，不支持带有主机名的 <code>file:</code> <a href="/api/url.html#the-whatwg-url-api" rel="nofollow"
+                                                class="type">&lt;URL&gt;</a> 并且会导致错误：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { readFileSync } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+<span class="hljs-comment">// 在其他平台上：</span>
+
+<span class="hljs-comment">// - 不支持带有主机名的 WHATWG 文件 URL</span>
+<span class="hljs-comment">// file://hostname/p/a/t/h/file =&gt; throw!</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file://hostname/p/a/t/h/file'</span>));
+<span class="hljs-comment">// TypeError [ERR_INVALID_FILE_URL_PATH]: must be absolute</span>
+
+<span class="hljs-comment">// - WHATWG 文件 URL 转换为绝对路径</span>
+<span class="hljs-comment">// file:///tmp/hello =&gt; /tmp/hello</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///tmp/hello'</span>));</code></pre>
+    <p>具有编码斜杠字符的 <code>file:</code> <a href="/api/url.html#the-whatwg-url-api" rel="nofollow"
+                                       class="type">&lt;URL&gt;</a> 在所有平台上都将导致错误：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { readFileSync } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+
+<span class="hljs-comment">// 在 Windows 上</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///C:/p/a/t/h/%2F'</span>));
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///C:/p/a/t/h/%2f'</span>));
+<span class="hljs-comment">/* TypeError [ERR_INVALID_FILE_URL_PATH]: File URL path must not include encoded
+\ or / characters */</span>
+
+<span class="hljs-comment">// 在 POSIX 上</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///p/a/t/h/%2F'</span>));
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///p/a/t/h/%2f'</span>));
+<span class="hljs-comment">/* TypeError [ERR_INVALID_FILE_URL_PATH]: File URL path must not include encoded
+/ characters */</span></code></pre>
+    <p>在 Windows 上，带有编码反斜杠的 <code>file:</code> <a href="/api/url.html#the-whatwg-url-api" rel="nofollow"
+                                                  class="type">&lt;URL&gt;</a> 将导致错误：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { readFileSync } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+
+<span class="hljs-comment">// 在 Windows 上</span>
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///C:/path/%5C'</span>));
+<span class="hljs-title function_">readFileSync</span>(<span class="hljs-keyword">new</span> <span class="hljs-title function_">URL</span>(<span class="hljs-string">'file:///C:/path/%5c'</span>));
+<span class="hljs-comment">/* TypeError [ERR_INVALID_FILE_URL_PATH]: File URL path must not include encoded
+\ or / characters */</span></code></pre>
+    <h5>Buffer 路径<span><a class="mark" href="#buffer-paths" id="buffer-paths">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_buffer_paths"></a></h5>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#buffer-paths">
+        <a href="fs/buffer_paths.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>使用 <a href="/api/buffer.html#class-buffer" rel="nofollow" class="type">&lt;Buffer&gt;</a>
+        指定的路径主要用于将文件路径视为不透明字节序列的某些 POSIX 操作系统。
+        在此类系统上，单个文件路径可能包含使用多种字符编码的子序列。
+        与字符串路径一样，<a href="/api/buffer.html#class-buffer" rel="nofollow" class="type">&lt;Buffer&gt;</a>
+        路径可以是相对的或绝对的：</p>
+    <p>在 POSIX 上使用绝对路径的示例：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { open } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs/promises'</span>;
+<span class="hljs-keyword">import</span> { <span class="hljs-title class_">Buffer</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">'buffer'</span>;
+
+<span class="hljs-keyword">let</span> fd;
+<span class="hljs-keyword">try</span> {
+  fd = <span class="hljs-keyword">await</span> <span class="hljs-title function_">open</span>(<span class="hljs-title class_">Buffer</span>.<span class="hljs-title function_">from</span>(<span class="hljs-string">'/open/some/file.txt'</span>), <span class="hljs-string">'r'</span>);
+  <span class="hljs-comment">// 对文件做一些事情</span>
+} <span class="hljs-keyword">finally</span> {
+  <span class="hljs-keyword">await</span> fd.<span class="hljs-title function_">close</span>();
+}</code></pre>
+    <h5>Windows
+        上的独立驱动器工作目录<span><a class="mark" href="#per-drive-working-directories-on-windows" id="per-drive-working-directories-on-windows">#</a></span><a
+                aria-hidden="true" class="legacy" id="fs_per_drive_working_directories_on_windows"></a></h5>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#per-drive-working-directories-on-windows">
+        <a href="fs/per_drive_working_directories_on_windows.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>在 Windows 上，Node.js 遵循独立驱动器工作目录的概念。
+        当使用不带反斜杠的驱动器路径时，可以观察到此行为。
+        例如，<code>fs.readdirSync('C:\\')</code> 可能返回与 <code>fs.readdirSync('C:')</code> 不同的结果。
+        有关详细信息，请参阅<a href="http://url.nodejs.cn/qMc4eE" rel="nofollow">此 MSDN 页面</a>。</p>
+    <h4>文件描述符<span><a class="mark" href="#file-descriptors_1" id="file-descriptors_1">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_file_descriptors_1"></a></h4>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#file-descriptors_1">
+        <a href="fs/file_descriptors_1.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>在 POSIX 系统上，对于每个进程，内核维护一个当前打开的文件和资源表。
+        每个打开的文件都分配了一个简单的数字标识符，称为_文件描述符_。
+        在系统级，所有文件系统操作都使用这些文件描述符来识别和跟踪每个特定文件。
+        Windows 系统使用不同但概念上相似的机制来跟踪资源。
+        为了方便用户，Node.js 抽象了操作系统之间的差异，并为所有打开的文件分配了一个数字文件描述符。</p>
+    <p>基于回调的 <code>fs.open()</code> 和同步 <code>fs.openSync()</code> 方法打开一个文件并分配一个新的文件描述符。
+        分配后，文件描述符可用于从文件读取数据、向文件写入数据或请求有关文件的信息。</p>
+    <p>操作系统限制在任何给定时间可能打开的文件描述符的数量，因此在操作完成时关闭描述符至关重要。
+        否则将导致内存泄漏，最终导致应用程序崩溃。</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { open, close, fstat } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs'</span>;
+
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">closeFd</span>(<span class="hljs-params">fd</span>) {
+  <span class="hljs-title function_">close</span>(fd, <span class="hljs-function">(<span class="hljs-params">err</span>) =&gt;</span> {
+    <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+  });
+}
+
+<span class="hljs-title function_">open</span>(<span class="hljs-string">'/open/some/file.txt'</span>, <span class="hljs-string">'r'</span>, <span class="hljs-function">(<span class="hljs-params">err, fd</span>) =&gt;</span> {
+  <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">throw</span> err;
+  <span class="hljs-keyword">try</span> {
+    <span class="hljs-title function_">fstat</span>(fd, <span class="hljs-function">(<span class="hljs-params">err, stat</span>) =&gt;</span> {
+      <span class="hljs-keyword">if</span> (err) {
+        <span class="hljs-title function_">closeFd</span>(fd);
+        <span class="hljs-keyword">throw</span> err;
+      }
+
+      <span class="hljs-comment">// 使用统计</span>
+
+      <span class="hljs-title function_">closeFd</span>(fd);
+    });
+  } <span class="hljs-keyword">catch</span> (err) {
+    <span class="hljs-title function_">closeFd</span>(fd);
+    <span class="hljs-keyword">throw</span> err;
+  }
+});</code></pre>
+    <p>基于 promise 的 API 使用 <a href="/api/fs.html#class-filehandle" rel="nofollow"
+                              class="type">&lt;FileHandle&gt;</a> 对象代替数字文件描述符。
+        这些对象由系统更好地管理，以确保资源不泄漏。
+        但是，仍然需要在操作完成时关闭它们：</p>
+    <pre><code class="language-js mjs"><span class="hljs-keyword">import</span> { open } <span class="hljs-keyword">from</span> <span class="hljs-string">'fs/promises'</span>;
+
+<span class="hljs-keyword">let</span> file;
+<span class="hljs-keyword">try</span> {
+  file = <span class="hljs-keyword">await</span> <span class="hljs-title function_">open</span>(<span class="hljs-string">'/open/some/file.txt'</span>, <span class="hljs-string">'r'</span>);
+  <span class="hljs-keyword">const</span> stat = <span class="hljs-keyword">await</span> file.<span class="hljs-title function_">stat</span>();
+  <span class="hljs-comment">// 使用统计</span>
+} <span class="hljs-keyword">finally</span> {
+  <span class="hljs-keyword">await</span> file.<span class="hljs-title function_">close</span>();
+}</code></pre>
+    <h4>线程池的使用<span><a class="mark" href="#threadpool-usage" id="threadpool-usage">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_threadpool_usage"></a></h4>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#threadpool-usage">
+        <a href="fs/threadpool_usage.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>所有基于回调和 promise 的文件系统 API（除了 <code>fs.FSWatcher()</code>）都使用 libuv 的线程池。
+        这可能会对某些应用程序产生令人惊讶的负面性能影响。
+        有关更多信息，请参阅 <a href="/api/cli.html#uv_threadpool_sizesize"><code>UV_THREADPOOL_SIZE</code></a>
+        文档。</p>
+    <h4>文件系统标志<span><a class="mark" href="#file-system-flags" id="file-system-flags">#</a></span><a
+            aria-hidden="true" class="legacy" id="fs_file_system_flags"></a></h4>
+    <p class="tip_wrap" data-show_trans="1" data-item_id="#file-system-flags">
+        <a href="fs/file_system_flags.html" class="tip_trans">中英对照</a>
+    </p>
+    <p>以下标志在 <code>flag</code> 选项接受字符串的任何地方可用。</p>
+    <ul>
+        <li>
+            <p><code>'a'</code>: 打开文件进行追加。
+                如果文件不存在，则创建该文件。</p>
+        </li>
+        <li>
+            <p><code>'ax'</code>: 类似于 <code>'a'</code> 但如果路径存在则失败。</p>
+        </li>
+        <li>
+            <p><code>'a+'</code>: 打开文件进行读取和追加。
+                如果文件不存在，则创建该文件。</p>
+        </li>
+        <li>
+            <p><code>'ax+'</code>: 类似于 <code>'a+'</code> 但如果路径存在则失败。</p>
+        </li>
+        <li>
+            <p><code>'as'</code>: 以同步模式打开文件进行追加。
+                如果文件不存在，则创建该文件。</p>
+        </li>
+        <li>
+            <p><code>'as+'</code>: 以同步模式打开文件进行读取和追加。
+                如果文件不存在，则创建该文件。</p>
+        </li>
+        <li>
+            <p><code>'r'</code>: 打开文件进行读取。
+                如果文件不存在，则会发生异常。</p>
+        </li>
+        <li>
+            <p><code>'r+'</code>: 打开文件进行读写。
+                如果文件不存在，则会发生异常。</p>
+        </li>
+        <li>
+            <p><code>'rs+'</code>: 以同步模式打开文件进行读写。
+                指示操作系统绕过本地文件系统缓存。</p>
+            <p>这主要用于在 NFS 挂载上打开文件，因为它允许跳过可能过时的本地缓存。
+                它对 I/O 性能有非常实际的影响，因此除非需要，否则不建议使用此标志。</p>
+            <p>这不会将 <code>fs.open()</code> 或 <code>fsPromises.open()</code> 变成同步阻塞调用。
+                如果需要同步操作，应该使用类似 <code>fs.openSync()</code> 的东西。</p>
+        </li>
+        <li>
+            <p><code>'w'</code>: 打开文件进行写入。
+                创建（如果它不存在）或截断（如果它存在）该文件。</p>
+        </li>
+        <li>
+            <p><code>'wx'</code>: 类似于 <code>'w'</code> 但如果路径存在则失败。</p>
+        </li>
+        <li>
+            <p><code>'w+'</code>: 打开文件进行读写。
+                创建（如果它不存在）或截断（如果它存在）该文件。</p>
+        </li>
+        <li>
+            <p><code>'wx+'</code>: 类似于 <code>'w+'</code> 但如果路径存在则失败。</p>
+        </li>
+    </ul>
+    <p><code>flag</code> 也可以是 <a href="http://url.nodejs.cn/ss2dGs"
+                                 rel="nofollow"><code>open(2)</code></a> 记录的数字；常用的常量可从 <code>fs.constants</code> 获得。
+        在 Windows 上，标志会在适用的情况下转换为等效的标志，例如 <code>O_WRONLY</code> 至 <code>FILE_GENERIC_WRITE</code>，或
+        <code>O_EXCL|O_CREAT</code> 至 <code>CREATE_NEW</code>，为 <code>CreateFileW</code> 所接受。</p>
+    <p>如果路径已经存在，则独占标志 <code>'x'</code>（ <a href="http://url.nodejs.cn/ss2dGs"
+                                           rel="nofollow"><code>open(2)</code></a> 中的 <code>O_EXCL</code> 标志）会导致操作返回错误。
+        在 POSIX 上，如果路径是符号链接，即使链接指向不存在的路径，使用 <code>O_EXCL</code> 也会返回错误。
+        独占标志可能不适用于网络文件系统。</p>
+    <p>在 Linux 上，以追加模式打开文件时，位置写入不起作用。
+        内核会忽略位置参数，并始终将数据追加到文件末尾。</p>
+    <p>修改文件而不是替换它可能需要将 <code>flag</code> 选项设置为 <code>'r+'</code> 而不是默认的 <code>'w'</code>。</p>
+    <p>某些标志的行为是特定于平台的。
+        因此，在 macOS 和 Linux 上使用 <code>'a+'</code> 标志打开目录，如下例所示，将返回错误。
+        而在 Windows 和 FreeBSD 上，将返回文件描述符或 <code>FileHandle</code>。</p>
+    <pre><code class="language-js"><span class="hljs-comment">// macOS 和 Linux</span>
+fs.<span class="hljs-title function_">open</span>(<span class="hljs-string">'&lt;directory&gt;'</span>, <span class="hljs-string">'a+'</span>, <span class="hljs-function">(<span class="hljs-params">err, fd</span>) =&gt;</span> {
+  <span class="hljs-comment">// =&gt; [Error: EISDIR: illegal operation on a directory, open &lt;directory&gt;]</span>
+});
+
+<span class="hljs-comment">// Windows 和 FreeBSD</span>
+fs.<span class="hljs-title function_">open</span>(<span class="hljs-string">'&lt;directory&gt;'</span>, <span class="hljs-string">'a+'</span>, <span class="hljs-function">(<span class="hljs-params">err, fd</span>) =&gt;</span> {
+  <span class="hljs-comment">// =&gt; null, &lt;fd&gt;</span>
+});</code></pre>
+    <p>在 Windows 上，使用 <code>'w'</code> 标志（通过 <code>fs.open()</code> 或 <code>fs.writeFile()</code> 或
+        <code>fsPromises.open()</code>）打开现有隐藏文件将失败并抛出 <code>EPERM</code>。
+        可以使用 <code>'r+'</code> 标志打开现有的隐藏文件进行写入。</p>
+    <p>调用 <code>fs.ftruncate()</code> 或 <code>filehandle.truncate()</code> 可用于重置文件内容。</p>
+</section>
+</body>
+
+</html>
