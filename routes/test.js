@@ -11,13 +11,14 @@ router.get('/index', function(req,res) {
 });
 
 router.get('/returnRes', function(req, res, next) {
-  let response  = {
-    'firstname': req.query.firstname,
-    'lastname': req.query.lastname
-  }
-  console.log('---------------------------------------------------------------------');
-  console.log(response);
-  res.send(JSON.stringify(response));
+//  let response  = {
+//    'firstname': req.query.firstname,
+//    'lastname': req.query.lastname
+//  }
+//  console.log('---------------------------------------------------------------------');
+//  console.log(response);
+//  res.send(JSON.stringify(response));
+ res.sendFile(path.join(__dirname,'/../public/javascripts/nodejsfile.html'));
 });
 
 module.exports = router;
