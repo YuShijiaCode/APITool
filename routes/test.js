@@ -6,7 +6,7 @@ let router = express.Router();
 
 /* GET users listing. */
 router.get('/index', function(req,res) {
-  res.sendFile("res.sendFile(path.join(__dirname , '/../public/javascripts/index.html'));");
+  res.sendFile(path.join(__dirname,'/../public/javascripts/index.html'));
   //console.log('./public/javascripts/index.html');
 });
 
